@@ -1,6 +1,10 @@
 import socket 
 from cryptography.hazmat.primitives.asymmetric import rsa #AI PART
 from cryptography.hazmat.primitives import serialization # AI PART
+import base64  # AI PART
+from cryptography.hazmat.primitives.asymmetric import padding  # AI PART
+from cryptography.hazmat.primitives import hashes  # AI PART
+
 
 start_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host= socket.gethostname()
@@ -43,6 +47,30 @@ while True:
                 print("RSA keys generated")
                 confirm_packet = b"(CC," + public_key_bytes + b")"
                 clientsocket.send(confirm_packet)
+        elif packet[0] == "EC":
+            print("Encryption packet received")
+
+            algorithm = packet[1]
+            encrypted_session_key_b64 = packet[2]
+
+            encrypted_session_key = base64.b64decode(encrypted_session_key_b64)
+
+            print("Algorithm:", algorithm)
+            print("Encrypted session key decoded from Base64")
+            
+            session_key = private_key.decrypt(encrypted_session_key,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+
+            print("Session key decrypted successfully")
+            client_public_key_b64 = packet[3]
+
+            client_public_key_bytes = base64.b64decode(client_public_key_b64)
+
+            print("Client public key decoded from Base64")
+            
+            client_public_key = serialization.load_pem_public_key(client_public_key_bytes)
+
+            print("Client public key loaded successfully")
+        
                 
     
     clientsocket.close()
