@@ -1,10 +1,13 @@
 import socket
 import threading
+import os
 from cryptography.hazmat.primitives.asymmetric import rsa  # AI PART
 from cryptography.hazmat.primitives import serialization  # AI PART
 import base64  # AI PART
 from cryptography.hazmat.primitives.asymmetric import padding  # AI PART
 from cryptography.hazmat.primitives import hashes  # AI PART
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # AI PART
+from cryptography.hazmat.primitives import padding as sym_padding  # AI PART
 
 
 # Python Thread creation using class
@@ -82,6 +85,86 @@ class mythread(threading.Thread):
                 self.clientsocket.send(success_packet.encode("utf-8"))
 
                 print("Secure connection established successfully")
+                
+            elif packet[0] == "CM":
+                if packet [1] == "mkdir": # Makes directory 
+                    os.mkdir(packet[2])
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                
+                elif packet[1] == "cd":
+                    os.chdir(packet[2])
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+
+                elif packet[1] == "del":
+                    os.remove(packet[2])
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))                    
+                
+                elif packet[1] == "ren":
+                    os.rename(packet[2], packet[3]) # index 3 is that new name 
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    
+                elif packet[1] == "rmdir":
+                    os.rmdir(packet[2])
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    
+                elif packet[1] == "openRead":
+                    file = open(packet[2], "r")
+                    text = file.read()
+                    text_bytes = text.encode("utf-8")  # AI PART
+                    padder = sym_padding.PKCS7(128).padder()  # AI PART
+                    padded_text = padder.update(text_bytes) + padder.finalize()  # AI PART
+                    iv = os.urandom(16)  # AI PART
+
+                    cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
+
+                    encryptor = cipher.encryptor()  # AI PART
+                    encrypted_text = encryptor.update(padded_text) + encryptor.finalize()  # AI PART
+                    iv_b64 = base64.b64encode(iv).decode("utf-8")  # AI PART
+                    encrypted_text_b64 = base64.b64encode(encrypted_text).decode("utf-8")  # AI PART
+                    data_packet = "(DP," + iv_b64 + "," + encrypted_text_b64 + ")"  # AI PART
+                    
+                    file.close()
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    self.clientsocket.send(data_packet.encode("utf-8"))  # AI PART
+                   
+                    
+                elif packet[1] == "openWrite":
+                    file = open(packet[2], "w")
+                    
+                    
+                   
+            elif packet[0] == "DP":
+                iv = base64.b64decode(packet[1])  # AI PART
+                encrypted_text = base64.b64decode(packet[2])  # AI PART
+
+                cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
+                decryptor = cipher.decryptor()  # AI PART
+
+                padded_text = decryptor.update(encrypted_text) + decryptor.finalize()  # AI PART
+
+                unpadder = sym_padding.PKCS7(128).unpadder()  # AI PART
+                text_bytes = unpadder.update(padded_text) + unpadder.finalize()  # AI PART
+
+                text = text_bytes.decode("utf-8")  # AI PART
+
+                file.write(text)
+                file.close()
+
+                success_packet = "(SC)"
+                self.clientsocket.send(success_packet.encode("utf-8"))
+                    
+             
+                    
+                
+                
+      
+             
 
         self.clientsocket.close()
 
