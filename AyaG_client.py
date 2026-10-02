@@ -1,10 +1,12 @@
 import socket
 from cryptography.hazmat.primitives import serialization  # AI PART
 from cryptography.hazmat.primitives.asymmetric import rsa  # AI PART
-import os  # AI PART
+import os  
 from cryptography.hazmat.primitives.asymmetric import padding  # AI PART
 from cryptography.hazmat.primitives import hashes  # AI PART
 import base64  # AI PART
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # AI PART
+from cryptography.hazmat.primitives import padding as sym_padding  # AI PART
 
 cSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 host = socket.gethostname()
@@ -64,8 +66,7 @@ print("Client public key converted to bytes")
 
 
 client_public_key_b64 = base64.b64encode(
-    client_public_key_bytes
-).decode("utf-8")
+    client_public_key_bytes).decode("utf-8")
 
 print("Client public key converted to Base64")
 
@@ -80,4 +81,65 @@ encryption_packet = (
 cSocket.send(encryption_packet.encode("utf-8"))
 
 print("Encryption packet sent to server")
+
+response = cSocket.recv(2024)
+
+print("Server response:", response.decode("utf-8"))
+
+while True:
+    
+    command = input("Enter command: ")
+    parts = command.split()
+
+    if len(parts) == 3:
+        command_packet = "(CM," + parts[0]+ "," + parts[1] + "," + parts[2] + ")"
+    elif len(parts) == 2:
+        command_packet = "(CM," + parts[0]+ "," + parts[1] + ")"
+
+
+    print("Sending:", command_packet)
+    cSocket.send(command_packet.encode("utf-8"))
+    
+    if parts[0] == "openWrite":
+        text = input("Enter text to write to file: ")
+        
+            # Encrypt the text using AES
+        text_bytes = text.encode("utf-8")  # AI PART
+
+        padder = sym_padding.PKCS7(128).padder()  # AI PART
+        padded_text = padder.update(text_bytes) + padder.finalize()  # AI PART
+
+        iv = os.urandom(16)  # AI PART
+
+        cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
+        encryptor = cipher.encryptor()  # AI PART
+        encrypted_text = encryptor.update(padded_text) + encryptor.finalize()  # AI PART
+
+        iv_b64 = base64.b64encode(iv).decode("utf-8")  # AI PART
+        encrypted_text_b64 = base64.b64encode(encrypted_text).decode("utf-8")  # AI PART
+
+        data_packet = "(DP," + iv_b64 + "," + encrypted_text_b64 + ")"  # AI PART
+        cSocket.send(data_packet.encode("utf-8"))  # AI PART
+            
+            
+
+    response = cSocket.recv(2024)
+    print("Command response:", response.decode("utf-8"))
+    
+    if parts[0] == "openRead":
+        data = cSocket.recv(2024)
+        print("Data received:", data.decode("utf-8"))
+        
+        data_packet = data.decode("utf-8").strip("()").split(",")  # AI PART
+        iv = base64.b64decode(data_packet[1])  # AI PART
+        encrypted_text = base64.b64decode(data_packet[2])  # AI PART
+        cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
+        decryptor = cipher.decryptor()  # AI PART
+        padded_text = decryptor.update(encrypted_text) + decryptor.finalize()  # AI PART
+        unpadder = sym_padding.PKCS7(128).unpadder()  # AI PART
+        text_bytes = unpadder.update(padded_text) + unpadder.finalize()  # AI PART
+        text = text_bytes.decode("utf-8")  # AI PART
+        print("File contents:", text)
+
+   
 cSocket.close()
