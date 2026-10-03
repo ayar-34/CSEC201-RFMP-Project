@@ -90,11 +90,21 @@ while True:
     
     command = input("Enter command: ")
     parts = command.split()
+    
+    if parts[0] == "exit":
+            end_message = "(End)"
+            cSocket.send(end_message.encode("utf-8"))  
+    
+            break
 
     if len(parts) == 3:
         command_packet = "(CM," + parts[0]+ "," + parts[1] + "," + parts[2] + ")"
     elif len(parts) == 2:
         command_packet = "(CM," + parts[0]+ "," + parts[1] + ")"
+    
+    elif len(parts) ==1 :
+        command_packet = "(CM," + parts[0] + ")"
+    
 
 
     print("Sending:", command_packet)
@@ -120,6 +130,7 @@ while True:
 
         data_packet = "(DP," + iv_b64 + "," + encrypted_text_b64 + ")"  # AI PART
         cSocket.send(data_packet.encode("utf-8"))  # AI PART
+    
             
             
 
@@ -141,5 +152,22 @@ while True:
         text = text_bytes.decode("utf-8")  # AI PART
         print("File contents:", text)
 
+
+    # Receiving from the server 
+    if parts[0] == "pwd":
+        current_d = cSocket.recv(2024)
+        print("Path: ", current_d.decode("utf-8"))
+        
+    if parts[0] == "ls":
+        lists = cSocket.recv(2024)
+        print("Lists: ", lists.decode("utf-8"))
+    
+    if parts[0] == "size":
+        size = cSocket.recv(2024)
+        print("size: ", size.decode("utf-8"))
+    
+    if parts[0] == "exits":
+        exits = cSocket.recv(2024)
+        print("Exits: ", exits.decode("utf-8"))
    
 cSocket.close()
