@@ -34,6 +34,7 @@ class mythread(threading.Thread):
 
                 if packet[3] == "0":
                     print("test this is not secure")
+                    secure_mode = False
 
                     confirm_packet = "(CC)"
                     self.clientsocket.send(
@@ -42,6 +43,7 @@ class mythread(threading.Thread):
 
                 elif packet[3] == "1":
                     print("test this is secure")
+                    secure_mode = True
 
                     private_key = rsa.generate_private_key(public_exponent=65537,key_size=2048)
 
@@ -85,17 +87,30 @@ class mythread(threading.Thread):
                 self.clientsocket.send(success_packet.encode("utf-8"))
 
                 print("Secure connection established successfully")
+            
+            elif packet[0] == "EE":
+                print()
                 
             elif packet[0] == "CM":
                 if packet [1] == "mkdir": # Makes directory 
-                    os.mkdir(packet[2])
-                    success_packet = "(SC)"
-                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    try:
+                        os.mkdir(packet[2])
+                        success_packet = "(SC)"
+                        self.clientsocket.send(success_packet.encode("utf-8"))
+                    except FileExistsError:
+                        error_packet = "(EE,2,File already exists)"
+                        self.clientsocket.send(error_packet.encode("utf-8"))
+                        
                 
                 elif packet[1] == "cd":
-                    os.chdir(packet[2])
-                    success_packet = "(SC)"
-                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    try:
+                        os.chdir(packet[2])
+                        success_packet = "(SC)"
+                        self.clientsocket.send(success_packet.encode("utf-8"))
+                    except FileNotFoundError:
+                        error_packet = "(EE,3,Directory not found)"
+                        self.clientsocket.send(error_packet.encode("utf-8")) 
+                        
 
                 elif packet[1] == "del":
                     os.remove(packet[2])
@@ -125,7 +140,7 @@ class mythread(threading.Thread):
                     self.clientsocket.send(success_packet.encode("utf-8"))
                     self.clientsocket.send(packet_size.encode("utf-8"))
                     
-                elif packet[1] == "exits":
+                elif packet[1] == "exists":
                     exits = str(os.path.exists(packet[2]))
                     success_packet = "(SC)"
                     self.clientsocket.send(success_packet.encode("utf-8"))
@@ -142,47 +157,63 @@ class mythread(threading.Thread):
                     open(packet[2], "w").close()
                     success_packet = "(SC)"
                     self.clientsocket.send(success_packet.encode("utf-8"))
-                    
+                
+                   
                 elif packet[1] == "openRead":
-                    file = open(packet[2], "r")
-                    text = file.read()
-                    text_bytes = text.encode("utf-8")  # AI PART
-                    padder = sym_padding.PKCS7(128).padder()  # AI PART
-                    padded_text = padder.update(text_bytes) + padder.finalize()  # AI PART
-                    iv = os.urandom(16)  # AI PART
+                    try:
+                        file = open(packet[2], "r")
+                        text = file.read()
+                        if secure_mode == True:
+                            
+                            text_bytes = text.encode("utf-8")  # AI PART
+                            padder = sym_padding.PKCS7(128).padder()  # AI PART
+                            padded_text = padder.update(text_bytes) + padder.finalize()  # AI PART
+                            iv = os.urandom(16)  # AI PART
 
-                    cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
+                            cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
 
-                    encryptor = cipher.encryptor()  # AI PART
-                    encrypted_text = encryptor.update(padded_text) + encryptor.finalize()  # AI PART
-                    iv_b64 = base64.b64encode(iv).decode("utf-8")  # AI PART
-                    encrypted_text_b64 = base64.b64encode(encrypted_text).decode("utf-8")  # AI PART
-                    data_packet = "(DP," + iv_b64 + "," + encrypted_text_b64 + ")"  # AI PART
-                    
-                    file.close()
-                    success_packet = "(SC)"
-                    self.clientsocket.send(success_packet.encode("utf-8"))
-                    self.clientsocket.send(data_packet.encode("utf-8"))  # AI PART
+                            encryptor = cipher.encryptor()  # AI PART
+                            encrypted_text = encryptor.update(padded_text) + encryptor.finalize()  # AI PART
+                            iv_b64 = base64.b64encode(iv).decode("utf-8")  # AI PART
+                            encrypted_text_b64 = base64.b64encode(encrypted_text).decode("utf-8")  # AI PART
+                            data_packet = "(DP," + iv_b64 + "," + encrypted_text_b64 + ")"  # AI PART
+                        else:
+                            data_packet = "(DP," + text + ")"
+                        
+                        file.close()
+                        success_packet = "(SC)"
+                        self.clientsocket.send(success_packet.encode("utf-8"))
+                        self.clientsocket.send(data_packet.encode("utf-8"))  # AI PART
+                    except FileNotFoundError:
+                        error_packet = "(EE,1,File not found)"
+                        self.clientsocket.send(error_packet.encode("utf-8"))        
                    
                     
                 elif packet[1] == "openWrite":
                     file = open(packet[2], "w")
+                
+                else:
+                    error_packet = "(EE,4,Invalid command)"
+                    self.clientsocket.send(error_packet.encode("utf-8"))
                     
                     
                    
             elif packet[0] == "DP":
-                iv = base64.b64decode(packet[1])  # AI PART
-                encrypted_text = base64.b64decode(packet[2])  # AI PART
+                if secure_mode == True:
+                    iv = base64.b64decode(packet[1])  # AI PART
+                    encrypted_text = base64.b64decode(packet[2])  # AI PART
 
-                cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
-                decryptor = cipher.decryptor()  # AI PART
+                    cipher = Cipher(algorithms.AES(session_key), modes.CBC(iv))  # AI PART
+                    decryptor = cipher.decryptor()  # AI PART
 
-                padded_text = decryptor.update(encrypted_text) + decryptor.finalize()  # AI PART
+                    padded_text = decryptor.update(encrypted_text) + decryptor.finalize()  # AI PART
 
-                unpadder = sym_padding.PKCS7(128).unpadder()  # AI PART
-                text_bytes = unpadder.update(padded_text) + unpadder.finalize()  # AI PART
+                    unpadder = sym_padding.PKCS7(128).unpadder()  # AI PART
+                    text_bytes = unpadder.update(padded_text) + unpadder.finalize()  # AI PART
 
-                text = text_bytes.decode("utf-8")  # AI PART
+                    text = text_bytes.decode("utf-8")  # AI PART
+                else: 
+                    text = packet[1]
 
                 file.write(text)
                 file.close()
@@ -190,7 +221,7 @@ class mythread(threading.Thread):
                 success_packet = "(SC)"
                 self.clientsocket.send(success_packet.encode("utf-8"))
             
-            elif packet[0] == "(End)":
+            elif packet[0] == "End":
                 break
                 
                     
