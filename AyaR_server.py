@@ -9,6 +9,24 @@ from cryptography.hazmat.primitives import hashes  # AI PART
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # AI PART
 from cryptography.hazmat.primitives import padding as sym_padding  # AI PART
 
+# AI PART
+def caesar_encrypt(text, shift):
+    encrypted_text = ""
+
+    for char in text:
+        encrypted_text += chr((ord(char) + shift) % 256)
+
+    return encrypted_text
+
+
+# AI PART
+def caesar_decrypt(text, shift):
+    decrypted_text = ""
+
+    for char in text:
+        decrypted_text += chr((ord(char) - shift) % 256)
+
+    return decrypted_text
 
 # Python Thread creation using class
 class mythread(threading.Thread):
@@ -61,6 +79,7 @@ class mythread(threading.Thread):
                 print("Encryption packet received")
 
                 algorithm = packet[1]
+              
                 encrypted_session_key_b64 = packet[2]
 
                 encrypted_session_key = base64.b64decode(encrypted_session_key_b64)
@@ -70,6 +89,8 @@ class mythread(threading.Thread):
 
                 session_key = private_key.decrypt(encrypted_session_key,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
 
+                if algorithm == "Caesar":
+                    caesar_key = session_key[0] % 26  # AI PART
                 print("Session key decrypted successfully")
 
                 client_public_key_b64 = packet[3]
@@ -163,7 +184,7 @@ class mythread(threading.Thread):
                     try:
                         file = open(packet[2], "r")
                         text = file.read()
-                        if secure_mode == True:
+                        if secure_mode == True and algorithm == "AES":
                             
                             text_bytes = text.encode("utf-8")  # AI PART
                             padder = sym_padding.PKCS7(128).padder()  # AI PART
@@ -177,13 +198,17 @@ class mythread(threading.Thread):
                             iv_b64 = base64.b64encode(iv).decode("utf-8")  # AI PART
                             encrypted_text_b64 = base64.b64encode(encrypted_text).decode("utf-8")  # AI PART
                             data_packet = "(DP," + iv_b64 + "," + encrypted_text_b64 + ")"  # AI PART
+                        elif secure_mode == True and algorithm == "Caesar":
+                            encrypted_text = caesar_encrypt(text, caesar_key)  # AI PART
+                            encrypted_text_b64 = base64.b64encode(encrypted_text.encode("latin-1")).decode("utf-8")  # AI PART
+                            data_packet = "(DP," + encrypted_text_b64 + ")"  # AI PART
                         else:
                             data_packet = "(DP," + text + ")"
                         
                         file.close()
                         success_packet = "(SC)"
                         self.clientsocket.send(success_packet.encode("utf-8"))
-                        self.clientsocket.send(data_packet.encode("utf-8"))  # AI PART
+                        self.clientsocket.send(data_packet.encode("utf-8")) 
                     except FileNotFoundError:
                         error_packet = "(EE,1,File not found)"
                         self.clientsocket.send(error_packet.encode("utf-8"))        
@@ -199,7 +224,8 @@ class mythread(threading.Thread):
                     
                    
             elif packet[0] == "DP":
-                if secure_mode == True:
+
+                if secure_mode == True and algorithm == "AES":
                     iv = base64.b64decode(packet[1])  # AI PART
                     encrypted_text = base64.b64decode(packet[2])  # AI PART
 
@@ -212,7 +238,12 @@ class mythread(threading.Thread):
                     text_bytes = unpadder.update(padded_text) + unpadder.finalize()  # AI PART
 
                     text = text_bytes.decode("utf-8")  # AI PART
-                else: 
+
+                elif secure_mode == True and algorithm == "Caesar":
+                    encrypted_text = base64.b64decode(packet[1]).decode("latin-1")  # AI PART
+                    text = caesar_decrypt(encrypted_text, caesar_key)  # AI PART
+
+                else:
                     text = packet[1]
 
                 file.write(text)
