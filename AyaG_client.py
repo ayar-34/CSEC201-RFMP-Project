@@ -136,6 +136,10 @@ while True:
 
     response = cSocket.recv(2024)
     print("Command response:", response.decode("utf-8"))
+    response_packet = response.decode("utf-8").strip("()").split(",")
+    
+    if response_packet[0] == "EE":
+        continue
     
     if parts[0] == "openRead":
         data = cSocket.recv(2024)
