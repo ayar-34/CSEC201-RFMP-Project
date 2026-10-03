@@ -112,6 +112,37 @@ class mythread(threading.Thread):
                     success_packet = "(SC)"
                     self.clientsocket.send(success_packet.encode("utf-8"))
                     
+                elif packet[1] == "ls":
+                    listing =str( os.listdir())
+                    success_packet = "(SC)"
+                    
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    self.clientsocket.send(listing.encode("utf-8"))
+                
+                elif packet[1] == "size":
+                    packet_size = str(os.path.getsize(packet[2]))
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    self.clientsocket.send(packet_size.encode("utf-8"))
+                    
+                elif packet[1] == "exits":
+                    exits = str(os.path.exists(packet[2]))
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    self.clientsocket.send(exits.encode("utf-8"))
+                                      
+                
+                elif packet[1] == "pwd": # shows the current directory 
+                    current_directory = os.getcwd()
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    self.clientsocket.send(current_directory.encode("utf-8"))
+                    
+                elif packet[1] == "touch":
+                    open(packet[2], "w").close()
+                    success_packet = "(SC)"
+                    self.clientsocket.send(success_packet.encode("utf-8"))
+                    
                 elif packet[1] == "openRead":
                     file = open(packet[2], "r")
                     text = file.read()
@@ -158,6 +189,10 @@ class mythread(threading.Thread):
 
                 success_packet = "(SC)"
                 self.clientsocket.send(success_packet.encode("utf-8"))
+            
+            elif packet[0] == "(End)":
+                break
+                
                     
              
                     
